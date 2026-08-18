@@ -9,7 +9,7 @@ Agent: 我可以帮你管一趟多人旅行的账：先确认同行人，再创�
 User: 我要去韩国旅行，帮我记账。
 Agent: 可以，同行人都有谁？
 
-User: 我、同行人A、同行人B、同行人C。
+User: 我、同行人 A、同行人 B、同行人 C。
 Agent: 我建议创建一份你能直接打开的 Excel 账本，保存在“文档/旅行账本”，以后每笔都会自动同步，可以吗？
 
 User: 可以。
@@ -17,12 +17,12 @@ Agent: 你已经换韩元现金了吗？会用或已经充值 T-money 吗？
 
 ## Identity already known
 
-User: 我和 同行人A 去韩国，帮我记账。
+User: 我和同行人 A 去韩国，帮我记账。
 Agent: Do not ask which name is the user. Proceed to readable-ledger recommendation.
 
 ## Identity ambiguous
 
-User: 同行人是同行人A、同行人B、同行人C。
+User: 同行人是甲、乙、丙。
 Agent: 这三个名字里哪个是你？
 
 ## No foreign cash
@@ -37,8 +37,8 @@ Agent: Create KRW cash wallet with Q=100000 and C=500; exchange is not consumpti
 
 ## Foreign expense missing source
 
-User: 同行人A 付了 30000 韩元吃饭，四个人。
-Agent: 同行人A 是用韩元现金、T-money，还是信用卡/线上支付？
+User: 同行人 A 付了 30000 韩元吃饭，四个人。
+Agent: 同行人 A 是用韩元现金、T-money，还是信用卡/线上支付？
 
 ## Ordinary entry
 
@@ -52,7 +52,7 @@ Agent: Split into shared dinner ¥180 and personal drink ¥60, both paid by the 
 
 ## Correction
 
-User: 刚才那笔其实只有我和 同行人A。
+User: 刚才那笔其实只有我和同行人 A。
 Agent: Update the uniquely matched recent unsettled record, recalculate, sync, and return the result.
 
 ## Settlement query
