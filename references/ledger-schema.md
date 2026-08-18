@@ -1,50 +1,53 @@
 # Logical Ledger Contract
 
-The host Agent chooses the physical implementation. Member shares may be embedded in a transaction or stored separately.
+The host chooses the physical implementation. A readable ledger is mandatory; internal JSON/database alone is insufficient.
 
-## Required
+## Readable expense view
+
+Show at minimum:
+
+- date/time;
+- item/category;
+- original amount/currency;
+- base-currency amount;
+- payer;
+- participants and shares;
+- payment source when relevant;
+- status.
+
+Provide a member summary with paid, burden, and open balance. Refresh after every successful write or correction.
+
+## Logical data
 
 ### Trip
 
-Stable ID/name, timezone, base currency, default participants/split, active status.
+Stable ID, name/destination, timezone, base currency, default participants/split, status, readable-ledger location/ownership.
 
-### Members
+### Member
 
 Stable ID, display name, current-user marker, active status.
 
-### Transactions
+### Transaction
 
-Common fields:
+Common: stable ID/idempotency key, type, time, title/category, status, original wording, change history.
 
-- stable ID and optional source message/idempotency key;
-- type, time, title/category, status;
-- original input and prior values.
+Expense: original amount/currency, locked base amount, conversion source/time, payer, payment source, participants, split method, member shares.
 
-Expense fields:
+Exchange/top-up: source wallet/amount/currency, destination wallet/amount/currency, transferred base cost, balances/costs before and after.
 
-- original amount/currency;
-- base amount and conversion source/time when needed;
-- payer/payment source;
-- participants, split method, member shares.
+Settlement: sender, receiver, amount, currency/base amount, time.
 
-Exchange/top-up fields:
+### Wallet, only for real funds
 
-- from wallet, amount, currency;
-- to wallet, amount, currency;
-- transferred base cost;
-- wallet balances/costs before and after.
-
-Settlement fields:
-
-- from member;
-- to member;
-- amount, currency/base amount;
-- time.
-
-### Wallets, only when needed
-
-Stable ID, owner, type, currency, remaining quantity, remaining base-currency cost, cost method.
+Stable ID, owner, type, currency, remaining foreign quantity, remaining base-currency cost, cost method.
 
 ## Ready check
 
-Verify trip/members/transaction shapes round-trip, one equal split closes, transfer types do not count as consumption, member nets sum to zero, the ledger reopens later, and no fake expense remains.
+Verify:
+
+1. trip, members, and transactions reopen correctly;
+2. user can open the readable ledger;
+3. one equal split closes;
+4. transfers do not count as consumption;
+5. member nets sum to zero;
+6. no fake expense or wallet balance remains.

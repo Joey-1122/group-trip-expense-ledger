@@ -1,205 +1,204 @@
 ---
 name: "manage-trip-expenses"
-description: "多人旅行由一人统一自然语言记账、分摊、外币换算、统计与结算。"
+description: "多人旅行一人管账：从首次启用到最终结算的完整用户旅程。"
 ---
 
-# Group Trip Expense Ledger
+# 多人旅行，一人管账
 
-Help one designated bookkeeper manage a whole travel group's shared ledger through natural conversation. Optimize for ordinary travel: quick entry, clear corrections, accurate member burdens, and an understandable final settlement.
+把 Agent 变成一名可靠的旅行管账人。用户不需要理解表格、字段、汇率成本或分摊算法；用户只需自然语言报账，Agent 负责建账、追问必要信息、计算、同步可见账本并给出清晰回执。
 
-Read `references/ledger-rules.md` before calculating or changing money.
-Read `references/ledger-schema.md` before asking the host Agent to create storage.
-Read `references/examples.md` when an input is ambiguous.
-Use `scripts/trip_ledger.py` when command execution is available.
+读取规则：
 
-## Boundary
+- 建账前读 `references/user-journey.md` 和 `references/ledger-schema.md`。
+- 算钱、改账或结算前读 `references/accounting-rules.md`。
+- 遇到表达不清时读 `references/conversation-examples.md`。
+- 可执行命令时用 `scripts/trip_ledger.py` 做确定性分摊与结算计算。
 
-The host Agent chooses and creates the actual durable store with its own tools. This Skill does not prescribe a vendor, database, spreadsheet, file format, or device environment.
+V1 只处理：一趟当前旅行、一个人替所有同行人记账、每笔消费一个付款人和一种支付来源。不设计多人同时编辑、并行旅行、退款或复杂账单。共同与个人混合的账单拆成普通记录。
 
-Require the host Agent to:
+## 体验承诺
 
-- choose one durable writable source of truth;
-- create the logical ledger from `references/ledger-schema.md`;
-- reopen the same ledger in later messages;
-- tell the user where the ledger is and whether it is shared;
-- report honestly if persistence is unavailable.
+始终满足以下承诺：
 
-Do not ask the user to design fields. If a new cloud resource needs permission, ask once and state who will own it.
+1. 用户能直接打开和看懂账本；JSON、数据库或应用私有存储不能单独作为交付物。
+2. 创建账本前说明推荐格式、位置、所有权/共享情况，并获得用户同意。
+3. 每次新增或修改都同时更新底账和用户可见账本，然后回执。
+4. 已明确的信息不重复问；每轮只问一个主题，最多两个紧密相关的问题。
+5. 只有缺失信息会改变金额、付款人、参与人或币种换算时才追问。
+6. 无法持久化或无法提供可见账本时如实说明，不假装建账成功。
 
-V1 assumes one active trip, one person recording for everyone, and one payer/payment source per recorded expense. If a bill mixes shared and personal items or uses multiple payers, split it into separate ordinary records.
+## 首次启用
 
+首次读取 Skill 且用户尚未开始具体旅行时，先建立信任，不要立刻盘问信息，也不要创建文件。
 
-## Start a trip
+用一段简短介绍说明：
 
-When no active trip exists, ask only for trip name, traveler names, and which name represents the user.
+- 这是“多人旅行、一人管账”；
+- Agent 会在用户同意后创建可直接查看的账本；
+- 用户以后只需自然语言报账；
+- 每笔账有回执，支持“改刚才那笔”“撤销刚才那笔”；
+- 开始方式是“我要去 XX 旅行，帮我记账”。
 
-Defaults:
+推荐话术：
 
-- base currency from locale when safe, otherwise CNY;
-- equal split;
-- all members as participants unless the user sets another default;
-- date from message time in the user's timezone;
-- no wallets until foreign cash or stored value appears.
+> 我可以帮你管一趟多人旅行的账：先和你确认同行人，再创建一份你能直接打开的账本。之后你只要说“同行人A 付了 30000 韩元吃饭，四个人 AA”，我会自动记录和分摊；记错了也能直接改。准备好时说“我要去 XX 旅行，帮我记账”就行。
 
-Reply:
+如果用户首次发言已经是“我要去 XX 旅行，帮我记账”，跳过整段介绍，直接进入建账引导；只在相关步骤说明账本可见、创建前会确认。
+
+## 建账引导
+
+把建账当成一段自然对话，而不是一张问卷。先从用户原话提取所有已知信息，再按以下顺序只问缺失项。
+
+### 1. 确认同行人
+
+如果只知道目的地，问：
+
+> 同行人都有谁？
+
+“我”天然代表当前用户。用户说“我和 同行人A”时，不再问哪个是用户。只有名单全部是姓名/昵称且无法识别当前用户时，才问：
+
+> 这些名字里哪个是你？
+
+不要询问旅行日期；日常记录默认使用消息时间，用户报了其他日期再覆盖。
+
+### 2. 推荐可见账本
+
+同行人明确后，宿主 Agent 根据自己真实可用的能力推荐一种最适合普通用户查看和持续更新的账本。优先级是可靠性与可见性，不是技术偏好。
+
+一句话说清：
+
+- 创建什么（Excel、在线表格、网页账本等）；
+- 用户在哪里打开；
+- 谁拥有、是否共享；
+- 需要授权时说明原因。
+
+然后只问是否同意。例如：
+
+> 我建议在这台电脑上创建一份可直接打开的 Excel 账本，保存在“文档/旅行账本”，以后每笔都会自动同步，可以吗？
+
+不要向用户列出一堆技术选项。只有存在两个同样合适、差异会影响用户的方案时才让用户二选一。绝不能静默创建 JSON 后把路径当成账本。
+
+### 3. 境外资金准备
+
+国内或本币旅行跳过本步骤。
+
+用户同意账本方案后，再问境外资金准备。只问当前会影响建账的钱包：
+
+> 你已经换外币现金了吗？会用或已经充值当地交通卡/储值卡吗？
+
+如果已换现金，追问外币金额和实际花掉的本币金额；如果已充值储值卡，追问充值来源和金额。没有真实金额就不创建余额。
+
+信用卡、支付宝、微信或其他支付方式不在启动时做全面调查。等第一笔相关消费出现、换算确实需要时再问。
+
+### 4. 创建、验证和交接
+
+必要信息齐全后才创建账本。物理实现由宿主 Agent 选择，但必须符合 `references/ledger-schema.md`。
+
+创建后验证：
+
+- 底账可以重新打开；
+- 用户可见账本可以打开；
+- 成员与默认规则正确；
+- 一次测试分摊能闭合；
+- 没有虚构消费或钱包余额。
+
+不要留下测试消费。
+
+交接只说用户现在需要知道的内容：
 
 ```
-旅行账本已就绪：厦门周末
-成员：我、同行人B、同行人A
-默认：人民币｜三人 AA｜日期按消息当天
-账本：<host-reported location>
-直接说“同行人B付了 96 打车，三个人”就能记。
+韩国旅行账本已建好
+成员：我、同行人A、同行人B、同行人C
+默认：四人 AA｜人民币汇总｜按消息当天记账
+账本：<可打开位置>
+直接说：“同行人A 付了 30000 韩元吃饭，四个人。”
 ```
 
-Introduce these phrases only when useful:
+如果存在真实外币余额，再补一行；否则不展示空钱包。不要在交接时倾倒完整使用手册。
 
-- “刚才那笔改成只有我”
-- “以后没说参与人就是我和同行人B”
-- “看每个人付了多少、承担多少”
-- “现在谁该转给谁”
-- “这笔是换汇/充值，不算消费”
+## 日常记账
 
-## Record an expense
+从用户话里提取：事项、原币金额、付款人、参与人/分摊方式、支付来源、日期。
 
-Extract date, title/category, amount/currency, payer, participants, split method, and payment source when it affects conversion.
+使用已建立的默认值。事实足够时直接记录，不要为了字段完整而追问低价值信息。只有以下缺失会导致算错时才问一句：
 
-Apply established defaults. Ask one short question only if missing information changes money, payer, participants, or currency conversion. If the message is not clearly a bookkeeping instruction or travel expense, do not write.
+- 谁付款；
+- 谁参与或如何分；
+- 币种；
+- 外币使用现金、储值卡还是卡/线上支付。
 
-Write immediately when material facts are clear. Show any low-impact assumption in the receipt.
+一条消息中共同消费与个人消费混在一起时拆成两笔；多人分别付款时按各自付款部分拆成多笔。
+
+写入顺序：
+
+1. 计算并校验分摊；
+2. 写入唯一底账；
+3. 同步用户可见账本；
+4. 确认两者成功；
+5. 给用户一条易读回执。
+
+回执示例：
 
 ```
-已记：打车 ¥96
-同行人B付款｜我、同行人B、同行人A AA，各 ¥32
-状态：未结算
+已记：晚餐 ¥240
+你付款｜你、同行人A、同行人B AA，各 ¥80
+账本已更新
 ```
 
-```
-已记：药品 ¥45
-同行人B付款｜由你个人承担
-当前你欠同行人B ¥45
-```
+如果底账成功但可见账本同步失败，明确告诉用户“本次未完成”，保留可恢复状态并优先修复同步；不要说“已记好”。
 
-“各付各的” creates separate personal records with payer = bearer and no settlement. A bill containing shared and personal items also becomes separate records.
+对疑似重复的同一条消息先核对最近记录；不能确定时询问，不要重复写入。
 
-## Split rules
+## 修改与撤销
 
-V1 supports:
+用户说“刚才那笔改成只有我和 同行人A”时，若能唯一定位未结算的最近记录，直接修改、重算、同步并回执。
 
-- equal among named/default participants;
-- personal;
-- treat: payer bears the full amount, no debt;
-- paid separately;
-- explicit custom amounts.
+只有多个记录可能匹配、批量修改或破坏性操作时才确认。
 
-Use integer minor units or exact decimals. Splits must close exactly. Assign unavoidable residual to the participating payer first, then stable member order.
+“撤销刚才那笔”将记录标记作废并保留历史，不物理删除。V1 不自动修改已经结算的消费；说明原因并请用户先确认处理方式。
 
-Keep separate:
+## 查询与结算
 
-- paid: merchant payment;
-- burden: member's consumption share;
-- settlement: repayment between travelers.
+区分显示：
 
-## Foreign cash and stored value
+- 消费总额；
+- 每个人实际承担；
+- 每个人向商家付款；
+- 旅行成员之间尚未结清的净额。
 
-Do not configure wallets during onboarding. Create them only when foreign cash or stored value appears.
+用户问“我花了多少”时，先回答个人承担，再补充代付金额。
 
-Every wallet using weighted cost stores:
+用户问“谁欠谁”时，生成确定、易执行的转账方案，但不自动记入账本。只有用户报告“我已经转给 同行人A 100”后，才记录结算并重算余额。
 
-- remaining foreign quantity `Q`;
-- remaining base-currency cost `C`;
-- current unit cost `C / Q`.
+结束旅行时给出：总消费、分类汇总、每人付款/承担、结算方案，以及可打开账本或导出入口。
 
-Use exact decimals and round only the final base-currency amount to its minor unit.
+## 金额逻辑
 
-### Exchange into a wallet
+详细规则见 `references/accounting-rules.md`。核心定义：
 
-For source base amount `c` buying foreign amount `q`:
+- 消费：向商家的真实支出；
+- 付款：谁先垫给商家；
+- 承担：最终该由谁负担；
+- 结算：旅行成员之间还钱，不算消费；
+- 换汇与充值：资金转移，不算消费。
 
-- `Q_new = Q_old + q`
-- `C_new = C_old + c`
-- `unit_cost = C_new / Q_new`
+所有计算使用最小货币单位或精确小数；每笔分摊必须严格闭合，所有成员净额之和必须为零。
 
-Record source wallet/amount/currency and destination wallet/amount/currency. Exchange is not consumption.
+## 外币
 
-### Spend from a wallet
+外币现金和储值卡使用实际取得成本做加权成本池。只有真实换汇/充值发生时才创建余额。
 
-For foreign spending amount `x`:
+外币信用卡或线上支付：
 
-- require `x <= Q_old`;
-- if `x == Q_old`, set `base_cost = C_old`; otherwise `base_cost = round_to_minor_unit(x * C_old / Q_old)`;
-- `Q_new = Q_old - x`;
-- `C_new = C_old - base_cost`.
+1. 用户提供实际本币扣款时直接使用；
+2. 否则使用宿主在记账当时能获得、可说明来源和时间的汇率；
+3. 无可靠汇率时询问用户或明确标为估算；
+4. 入账后锁定本币金额，不做日后自动回补。
 
-The expense uses `base_cost` for splitting. If tracked balance is insufficient, ask for the correct funding source; do not fabricate a negative pool.
+换汇、充值、消费必须保存足够信息以重新计算，规则见 `references/accounting-rules.md`。
 
-### Transfer into stored value
+## 宿主能力边界
 
-For foreign amount `x` moved from cash wallet A to stored-value wallet B:
+Skill 不规定飞书、腾讯表格、本地电脑、云端或手机的具体工程实现。宿主 Agent 负责选择真实可用的存储和授权方式，但必须满足本 Skill 的体验承诺。
 
-- if `x == Q_A`, set `transferred_cost = C_A`; otherwise calculate `transferred_cost = round_to_minor_unit(x * C_A / Q_A)`;
-- subtract `x` and `transferred_cost` from A;
-- add `x` and `transferred_cost` to B.
-
-Top-up is a transfer, not consumption. Later spending from B uses B's weighted cost.
-
-### Foreign card or online payment
-
-If the user provides the actual base-currency charged amount, use it. Otherwise use a current rate supplied by the host Agent's rate source at entry time. Store rate, source, and timestamp; lock the converted amount for splitting. Do not reconcile a later card statement in V1.
-
-Never call a rate real-time without a source. If no rate is available, ask the user for one or mark the conversion as estimated.
-
-## Correct or undo
-
-Resolve the target to exactly one record.
-
-Apply an unambiguous correction to an unsettled recent entry immediately, recalculate its shares and balances, preserve the prior value, and report the result.
-
-Confirm only when multiple records match or the action is bulk/destructive. Do not automatically modify a settled record in V1; tell the user it is already settled and leave it unchanged.
-
-Explicit rule changes such as “以后默认我和同行人B” execute immediately with a short receipt.
-
-Void an entry that never happened. Do not erase its history.
-
-## Query and settle
-
-Report separately:
-
-- total trip consumption: active expenses only;
-- member burden;
-- member paid amount;
-- open balance.
-
-Before settlements:
-
-`net(member) = merchant_paid(member) - burden(member)`
-
-Positive means should receive; negative means owes.
-
-For a settlement transfer `sender → receiver` of amount `s`:
-
-- `net(sender) = net(sender) + s`
-- `net(receiver) = net(receiver) - s`.
-
-Store settlement with `from_member`, `to_member`, amount, currency/base amount, and time. Settlement is not consumption. Any reported transfer amount may be recorded; then recompute remaining balances.
-
-For “谁欠谁”:
-
-1. calculate member nets including recorded settlements;
-2. verify all nets sum to zero;
-3. generate a deterministic, easy-to-follow transfer plan;
-4. never claim mathematical minimum without an exact algorithm;
-5. leave suggestions unrecorded until the user reports payment.
-
-If asked “我花了多少”, answer with burden first and also show paid amount. Exclude exchange, top-up, settlement, and voided records.
-
-## After every write
-
-Persist the record, member shares, wallet movement if any, and prior-value history as one logical action. Use a message ID/idempotency key when available.
-
-Return what was recorded, who paid, who bears how much, whether it counts as consumption, and any useful balance implication. Keep receipts short.
-
-## End of trip
-
-On request provide total/category consumption, each member's paid amount and burden, personal/shared/treat breakdown, unresolved estimated conversions, current settlement plan, and the host-supported ledger location/exports.
-
-Keep the ledger available for simple late corrections and settlement transfers.
+如果环境只能写内部 JSON、用户无法打开成品账本，宿主应停下并说明限制，提出一个真实可行的可见方案；不能降低为“先用 JSON 凑合”。
